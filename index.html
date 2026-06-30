@@ -5,6 +5,8 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta name="description" content="Painel Executivo de Retenção - Cartão de Todos. Dashboard interativo com importação de Excel, indicadores de retenção, desempenho por assessora e busca de clientes.">
     <title>Cartão de Todos — Painel Executivo de Retenção</title>
+    <link rel="icon" type="image/png" href="logo.png">
+    <link rel="apple-touch-icon" href="logo.png">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700;800&family=Nunito+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js" crossorigin="anonymous"></script>
@@ -546,6 +548,10 @@
         .stat-tile.accent-inconf .stat-value { color: var(--kpi-inconf); }
         .stat-tile.accent-adimplencia .stat-icon { background: rgba(47, 125, 106, 0.12); color: var(--kpi-adimplencia); }
         .stat-tile.accent-adimplencia .stat-value { color: var(--kpi-adimplencia); }
+        .stat-tile.accent-obito .stat-icon { background: rgba(107, 91, 149, 0.12); color: #6b5b95; }
+        .stat-tile.accent-obito .stat-value { color: #6b5b95; }
+        .stat-tile.accent-setedias .stat-icon { background: rgba(61, 154, 163, 0.12); color: #3d9aa3; }
+        .stat-tile.accent-setedias .stat-value { color: #3d9aa3; }
 
         .kpi-sub {
             font-size: 12px;
@@ -749,10 +755,9 @@
             background: var(--bg-card);
             border: 1px solid var(--border-card);
             border-radius: var(--radius-sm);
-            box-shadow: var(--shadow-card);
-            backdrop-filter: blur(20px);
+            box-shadow: 0 8px 24px rgba(14, 59, 42, 0.12);
             padding: 6px;
-            z-index: 50;
+            z-index: 200;
             flex-direction: column;
             gap: 2px;
         }
@@ -1734,6 +1739,22 @@
                     <div class="stat-label">Adimplência Revertida</div>
                     <div class="stat-value" id="kpiAdimplente">0%</div>
                     <div class="stat-sub">Clientes revertidos adimplentes</div>
+                </div>
+            </div>
+            <div class="stat-tile accent-obito animate-in">
+                <div class="stat-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22V12"/><path d="M12 12C12 7 8 4 4 4"/><path d="M12 12C12 7 16 4 20 4"/><circle cx="12" cy="4" r="2"/></svg></div>
+                <div class="stat-meta">
+                    <div class="stat-label">Óbito</div>
+                    <div class="stat-value" id="kpiObito">0</div>
+                    <div class="stat-sub">Cancelamentos por falecimento</div>
+                </div>
+            </div>
+            <div class="stat-tile accent-setedias animate-in">
+                <div class="stat-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg></div>
+                <div class="stat-meta">
+                    <div class="stat-label">Cancelamento 7 Dias</div>
+                    <div class="stat-value" id="kpiSeteDias">0</div>
+                    <div class="stat-sub">Cancelados no período de 7 dias</div>
                 </div>
             </div>
         </div>
@@ -3308,6 +3329,8 @@ function recalculateDashboard() {
     const cancelados = total - retidos;
     const taxa = total > 0 ? (retidos / total) : 0;
     const inconformidades = filtered.filter(c => c.conversao === 'INCONFORMIDADE').length;
+    const obitos = filtered.filter(c => c.conversao === 'ÓBITO').length;
+    const seteDias = filtered.filter(c => c.conversao === '7 DIAS').length;
 
     // Adimplência
     const revertidos = filtered.filter(c => c.conversao === 'SIM');
@@ -3321,6 +3344,8 @@ function recalculateDashboard() {
     document.getElementById('kpiTaxa').textContent = (taxa * 100).toFixed(1).replace('.', ',') + '%';
     animateValue('kpiInconf', inconformidades);
     document.getElementById('kpiAdimplente').textContent = (taxaAdimplente * 100).toFixed(1).replace('.', ',') + '%';
+    animateValue('kpiObito', obitos);
+    animateValue('kpiSeteDias', seteDias);
 
     // Visual alert: flag the retention KPI card red when below the goal
     const belowGoal = total > 0 && (taxa * 100) < RETENTION_GOAL_PERCENT;
