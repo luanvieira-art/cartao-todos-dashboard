@@ -543,6 +543,8 @@
         .stat-tile.accent-retidos .stat-value { color: var(--kpi-retidos); }
         .stat-tile.accent-cancelados .stat-icon { background: rgba(194, 69, 58, 0.12); color: var(--kpi-cancelados); }
         .stat-tile.accent-cancelados .stat-value { color: var(--kpi-cancelados); }
+        .stat-tile.accent-cancelados-assessoras .stat-icon { background: rgba(194, 69, 58, 0.08); color: #b03a30; }
+        .stat-tile.accent-cancelados-assessoras .stat-value { color: #b03a30; }
         .stat-tile.accent-inconf .stat-icon { background: rgba(176, 127, 34, 0.12); color: var(--kpi-inconf); }
         .stat-tile.accent-inconf .stat-value { color: var(--kpi-inconf); }
         .stat-tile.accent-adimplencia .stat-icon { background: rgba(47, 125, 106, 0.12); color: var(--kpi-adimplencia); }
@@ -1721,9 +1723,17 @@
             <div class="stat-tile accent-cancelados animate-in">
                 <div class="stat-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg></div>
                 <div class="stat-meta">
-                    <div class="stat-label">Cancelados</div>
+                    <div class="stat-label">Cancelamentos Totais</div>
                     <div class="stat-value" id="kpiCancelados">0</div>
-                    <div class="stat-sub">Cancelamentos efetivados</div>
+                    <div class="stat-sub">Todos os cancelamentos</div>
+                </div>
+            </div>
+            <div class="stat-tile accent-cancelados-assessoras animate-in">
+                <div class="stat-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/><line x1="12" y1="2" x2="12" y2="6"/></svg></div>
+                <div class="stat-meta">
+                    <div class="stat-label">Cancelamentos Assessoras</div>
+                    <div class="stat-value" id="kpiCanceladosAssessoras">0</div>
+                    <div class="stat-sub">Exclui óbito, ouvidoria e 7 dias</div>
                 </div>
             </div>
             <div class="stat-tile accent-inconf animate-in">
@@ -2069,7 +2079,7 @@
             </div>
             <button class="btn-action" id="btnExportCSV">
                 <svg width="14" height="14" fill="currentColor" viewBox="0 0 16 16" style="vertical-align: middle;"><path d="M.5 9.9a.5.5 0 0 1 .5.5v2.5a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-2.5a.5.5 0 0 1 1 0v2.5a2 2 0 0 1-2 2H2a2 2 0 0 1-2-2v-2.5a.5.5 0 0 1 .5-.5z"/><path d="M14 4.5V14a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V2a2 2 0 0 1 2-2h5.5L14 4.5zm-3 0A1.5 1.5 0 0 1 9.5 3V1H4a1 1 0 0 0-1 1v12a1 1 0 0 0 1 1h8a1 1 0 0 0 1-1V4.5h-2z"/></svg>
-                Exportar CSV
+                Exportar Excel
             </button>
         </div>
 
@@ -3338,14 +3348,18 @@ function recalculateDashboard() {
     const filtered = getActiveFilteredClients();
 
     // 2. Aggregate KPIs
+    const EXCLUIDOS_TAXA = ['ÓBITO', 'OUVIDORIA', '7 DIAS'];
     const total = filtered.length;
     const retidos = filtered.filter(c => c.conversao === 'SIM').length;
-    const cancelados = total - retidos;
-    const taxa = total > 0 ? (retidos / total) : 0;
+    const canceladosTotais = total - retidos;
     const inconformidades = filtered.filter(c => c.conversao === 'INCONFORMIDADE').length;
     const obitos = filtered.filter(c => c.conversao === 'ÓBITO').length;
     const seteDias = filtered.filter(c => c.conversao === '7 DIAS').length;
     const ouvidorias = filtered.filter(c => c.conversao === 'OUVIDORIA').length;
+    // Base das assessoras: exclui óbito, ouvidoria e 7 dias do cálculo da taxa
+    const baseAssessoras = total - obitos - ouvidorias - seteDias;
+    const canceladosAssessoras = baseAssessoras - retidos;
+    const taxa = baseAssessoras > 0 ? (retidos / baseAssessoras) : 0;
 
     // Adimplência
     const revertidos = filtered.filter(c => c.conversao === 'SIM');
@@ -3355,7 +3369,8 @@ function recalculateDashboard() {
     // Render KPIs
     animateValue('kpiTotal', total);
     animateValue('kpiRetidos', retidos);
-    animateValue('kpiCancelados', cancelados);
+    animateValue('kpiCancelados', canceladosTotais);
+    animateValue('kpiCanceladosAssessoras', canceladosAssessoras);
     document.getElementById('kpiTaxa').textContent = (taxa * 100).toFixed(1).replace('.', ',') + '%';
     animateValue('kpiInconf', inconformidades);
     document.getElementById('kpiAdimplente').textContent = (taxaAdimplente * 100).toFixed(1).replace('.', ',') + '%';
@@ -3426,23 +3441,43 @@ function updateCharts(data) {
     const datasetCancelados = [];
     const datasetTaxas = [];
 
+    const EXCL = ['ÓBITO', 'OUVIDORIA', '7 DIAS'];
+    const datasetInconf = [];
+    const datasetObitos = [];
+    const datasetOuvidorias = [];
+    const datasetSeteDias = [];
+
     assessors.forEach(a => {
         const aData = data.filter(d => d.assessor === a);
-        const aTotal = aData.length;
-        const aRetidos = aData.filter(d => d.conversao === 'SIM').length;
+        // Base das assessoras: exclui óbito, ouvidoria e 7 dias
+        const aBase = aData.filter(d => !EXCL.includes(d.conversao));
+        const aTotal = aBase.length;
+        const aRetidos = aBase.filter(d => d.conversao === 'SIM').length;
         const aCancelados = aTotal - aRetidos;
         const aTaxa = aTotal > 0 ? +(aRetidos / aTotal * 100).toFixed(1) : 0;
+        const aInconf = aData.filter(d => d.conversao === 'INCONFORMIDADE').length;
+        const aObitos = aData.filter(d => d.conversao === 'ÓBITO').length;
+        const aOuvidorias = aData.filter(d => d.conversao === 'OUVIDORIA').length;
+        const aSeteDias = aData.filter(d => d.conversao === '7 DIAS').length;
 
         datasetTotal.push(aTotal);
         datasetRetidos.push(aRetidos);
         datasetCancelados.push(aCancelados);
         datasetTaxas.push(aTaxa);
+        datasetInconf.push(aInconf);
+        datasetObitos.push(aObitos);
+        datasetOuvidorias.push(aOuvidorias);
+        datasetSeteDias.push(aSeteDias);
     });
 
     charts.assessor.data.labels = assessors;
     charts.assessor.data.datasets[0].data = datasetTotal;
     charts.assessor.data.datasets[1].data = datasetRetidos;
     charts.assessor.data.datasets[2].data = datasetCancelados;
+    charts.assessor.data.datasets[3].data = datasetInconf;
+    charts.assessor.data.datasets[4].data = datasetObitos;
+    charts.assessor.data.datasets[5].data = datasetOuvidorias;
+    charts.assessor.data.datasets[6].data = datasetSeteDias;
     charts.assessor.update();
     setChartEmpty('emptyAssessor', data.length === 0);
 
@@ -4049,38 +4084,90 @@ function downloadTemplateSpreadsheet() {
     XLSX.writeFile(wb, 'Modelo_Cartao_de_Todos.xlsx');
 }
 
-// ==================== CSV EXPORT ====================
+// ==================== EXCEL EXPORT (BUSCADOR DE CLIENTES) ====================
 function exportToCSV() {
-    if (filteredClients.length === 0) return;
-    
-    // Headers
-    const headers = ['Data Atendimento', 'Assessora', 'Matricula', 'Cliente', 'Status', 'Motivo', 'SubMotivo', 'Observacao', 'Tempo de Contrato', 'Adimplente'];
-    const csvRows = [headers.join(';')];
+    if (filteredClients.length === 0) {
+        alert('Nenhum cliente para exportar. Importe dados ou ajuste os filtros.');
+        return;
+    }
 
-    filteredClients.forEach(c => {
-        const values = [
-            c.data,
-            c.assessor,
-            c.matricula,
-            c.cliente.replace(/;/g, ','),
-            c.conversao,
-            c.motivo.replace(/;/g, ','),
-            c.submotivo.replace(/;/g, ','),
-            c.observacao.replace(/;/g, ',').replace(/(\r\n|\n|\r)/gm, " "),
-            c.tempo,
-            c.adimplente
-        ];
-        csvRows.push(values.join(';'));
-    });
+    const today = new Date().toLocaleDateString('pt-BR');
+    const total = filteredClients.length;
+    const retidos = filteredClients.filter(c => c.conversao === 'SIM').length;
+    const obitos = filteredClients.filter(c => c.conversao === '\u00D3BITO').length;
+    const ouvidorias = filteredClients.filter(c => c.conversao === 'OUVIDORIA').length;
+    const seteDias = filteredClients.filter(c => c.conversao === '7 DIAS').length;
+    const baseAssessoras = total - obitos - ouvidorias - seteDias;
+    const taxa = baseAssessoras > 0 ? (retidos / baseAssessoras * 100).toFixed(1) : '0.0';
 
-    const csvContent = "data:text/csv;charset=utf-8,\uFEFF" + csvRows.join("\n");
-    const encodedUri = encodeURI(csvContent);
-    const link = document.createElement("a");
-    link.setAttribute("href", encodedUri);
-    link.setAttribute("download", `Clientes_Retencao_Filtrados_${new Date().toLocaleDateString()}.csv`);
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
+    // \u2500\u2500 Aba 1: CLIENTES \u2500\u2500
+    const headers = [
+        'DATA', 'ASSESSORA', 'MATR\u00CDCULA', 'CLIENTE', 'TIPO DE RETEN\u00C7\u00C3O',
+        'CONVERS\u00C3O', 'MOTIVO', 'SUB MOTIVO', 'OBSERVA\u00C7\u00C3O',
+        'ADIMPLENTE', 'APLICATIVO', 'TEMPO DE CONTRATO', 'TICKET HUBSPOT'
+    ];
+    const dataRows = filteredClients.map(c => [
+        c.data        || '',
+        c.assessor    || '',
+        c.matricula   || '',
+        c.cliente     || '',
+        c.tipo        || '',
+        c.conversao   || '',
+        c.motivo      || '',
+        c.submotivo   || '',
+        (c.observacao || '').replace(/(\r\n|\n|\r)/g, ' '),
+        c.adimplente  || '',
+        c.aplicativo  || '',
+        c.tempo       || '',
+        c.hubspot     || ''
+    ]);
+
+    const wsClientes = XLSX.utils.aoa_to_sheet([headers, ...dataRows]);
+    wsClientes['!cols'] = [
+        { wch: 14 }, { wch: 18 }, { wch: 18 }, { wch: 30 }, { wch: 18 },
+        { wch: 16 }, { wch: 26 }, { wch: 36 }, { wch: 52 },
+        { wch: 14 }, { wch: 14 }, { wch: 20 }, { wch: 18 }
+    ];
+    wsClientes['!freeze'] = { xSplit: 0, ySplit: 1 };
+    wsClientes['!autofilter'] = { ref: `A1:M1` };
+
+    // \u2500\u2500 Aba 2: RESUMO \u2500\u2500
+    const assessorasSet = [...new Set(filteredClients.map(c => c.assessor).filter(Boolean))].sort();
+    const resumoLinhas = [
+        ['RESUMO DA EXPORTA\u00C7\u00C3O \u2014 CART\u00C3O DE TODOS'],
+        [],
+        ['Data da Exporta\u00E7\u00E3o', today],
+        ['Total de Registros', total],
+        [],
+        ['INDICADORES GERAIS', ''],
+        ['Retidos (SIM)', retidos],
+        ['Cancelados', total - retidos - obitos - ouvidorias - seteDias],
+        ['Inconformidades', filteredClients.filter(c => c.conversao === 'INCONFORMIDADE').length],
+        ['\u00D3bito', obitos],
+        ['Ouvidoria', ouvidorias],
+        ['Cancelamento 7 Dias', seteDias],
+        ['Taxa de Reten\u00E7\u00E3o (%)', taxa + '%'],
+        [],
+        ['DESEMPENHO POR ASSESSORA', ''],
+        ['Assessora', 'Total', 'Retidos', 'Cancelados', 'Taxa (%)'],
+        ...assessorasSet.map(a => {
+            const aData = filteredClients.filter(c => c.assessor === a);
+            const aBase = aData.filter(d => !['\u00D3BITO', 'OUVIDORIA', '7 DIAS'].includes(d.conversao));
+            const aRetidos = aBase.filter(d => d.conversao === 'SIM').length;
+            const aTaxa = aBase.length > 0 ? (aRetidos / aBase.length * 100).toFixed(1) + '%' : '0.0%';
+            return [a, aBase.length, aRetidos, aBase.length - aRetidos, aTaxa];
+        })
+    ];
+
+    const wsResumo = XLSX.utils.aoa_to_sheet(resumoLinhas);
+    wsResumo['!cols'] = [{ wch: 30 }, { wch: 14 }, { wch: 14 }, { wch: 14 }, { wch: 12 }];
+
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, wsClientes, 'CLIENTES');
+    XLSX.utils.book_append_sheet(wb, wsResumo, 'RESUMO');
+
+    const dateFile = today.replace(/\//g, '-');
+    XLSX.writeFile(wb, `Clientes_Retencao_${dateFile}.xlsx`);
 }
 
 // ==================== PDF REPORT EXPORT ====================
@@ -4597,7 +4684,11 @@ function initChartInstances() {
         data: { labels: [], datasets: [
             { label: 'Total', data: [], backgroundColor: 'rgba(47, 125, 106, 0.7)', borderColor: '#2f7d6a', borderWidth: 1, borderRadius: 5 },
             { label: 'Retidos', data: [], backgroundColor: 'rgba(12, 122, 77, 0.7)', borderColor: '#0C7A4D', borderWidth: 1, borderRadius: 5 },
-            { label: 'Cancelados', data: [], backgroundColor: 'rgba(239, 68, 68, 0.7)', borderColor: '#ef4444', borderWidth: 1, borderRadius: 5 }
+            { label: 'Cancelados', data: [], backgroundColor: 'rgba(239, 68, 68, 0.7)', borderColor: '#ef4444', borderWidth: 1, borderRadius: 5 },
+            { label: 'Inconformidade', data: [], backgroundColor: 'rgba(201, 138, 30, 0.7)', borderColor: '#c98a1e', borderWidth: 1, borderRadius: 5 },
+            { label: 'Óbito', data: [], backgroundColor: 'rgba(107, 91, 149, 0.7)', borderColor: '#6b5b95', borderWidth: 1, borderRadius: 5 },
+            { label: 'Ouvidoria', data: [], backgroundColor: 'rgba(224, 122, 47, 0.7)', borderColor: '#e07a2f', borderWidth: 1, borderRadius: 5 },
+            { label: '7 Dias', data: [], backgroundColor: 'rgba(61, 154, 163, 0.7)', borderColor: '#3d9aa3', borderWidth: 1, borderRadius: 5 }
         ]},
         options: {
             responsive: true, maintainAspectRatio: false,
