@@ -3351,7 +3351,7 @@ function recalculateDashboard() {
     const EXCLUIDOS_TAXA = ['ÓBITO', 'OUVIDORIA', '7 DIAS'];
     const total = filtered.length;
     const retidos = filtered.filter(c => c.conversao === 'SIM').length;
-    const canceladosTotais = total - retidos;
+    const canceladosTotais = total - retidos - ouvidorias;
     const inconformidades = filtered.filter(c => c.conversao === 'INCONFORMIDADE').length;
     const obitos = filtered.filter(c => c.conversao === 'ÓBITO').length;
     const seteDias = filtered.filter(c => c.conversao === '7 DIAS').length;
@@ -3560,10 +3560,11 @@ function updateCharts(data) {
         </tr>
     `).join('');
 
-    // C. Top Motivos
-    const nonRetainedCount = data.filter(d => d.conversao !== 'SIM').length;
+    // C. Top Motivos (ouvidoria não é cancelamento — excluída)
+    const isCancelamento = d => d.conversao !== 'SIM' && d.conversao !== 'OUVIDORIA';
+    const nonRetainedCount = data.filter(isCancelamento).length;
     const motivosCounts = {};
-    data.filter(d => d.conversao !== 'SIM').forEach(d => {
+    data.filter(isCancelamento).forEach(d => {
         motivosCounts[d.motivo] = (motivosCounts[d.motivo] || 0) + 1;
     });
 
@@ -3582,7 +3583,7 @@ function updateCharts(data) {
 
     // C.1 Sub Motivos — total ranking + breakdown per assessora
     const submotivoCounts = {};
-    data.filter(d => d.conversao !== 'SIM').forEach(d => {
+    data.filter(isCancelamento).forEach(d => {
         submotivoCounts[d.submotivo] = (submotivoCounts[d.submotivo] || 0) + 1;
     });
 
@@ -3608,7 +3609,7 @@ function updateCharts(data) {
         return {
             label: a,
             data: topSubmotivoLabels.map(sm =>
-                data.filter(d => d.conversao !== 'SIM' && d.assessor === a && d.submotivo === sm).length
+                data.filter(d => isCancelamento(d) && d.assessor === a && d.submotivo === sm).length
             ),
             backgroundColor: color + 'bb',
             borderColor: color,
