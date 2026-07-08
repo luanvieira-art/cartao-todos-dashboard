@@ -3351,11 +3351,11 @@ function recalculateDashboard() {
     const EXCLUIDOS_TAXA = ['ÓBITO', 'OUVIDORIA', '7 DIAS'];
     const total = filtered.length;
     const retidos = filtered.filter(c => c.conversao === 'SIM').length;
-    const canceladosTotais = total - retidos - ouvidorias;
     const inconformidades = filtered.filter(c => c.conversao === 'INCONFORMIDADE').length;
     const obitos = filtered.filter(c => c.conversao === 'ÓBITO').length;
     const seteDias = filtered.filter(c => c.conversao === '7 DIAS').length;
     const ouvidorias = filtered.filter(c => c.conversao === 'OUVIDORIA').length;
+    const canceladosTotais = total - retidos - ouvidorias;
     // Base das assessoras: exclui óbito, ouvidoria e 7 dias do cálculo da taxa
     const baseAssessoras = total - obitos - ouvidorias - seteDias;
     const canceladosAssessoras = baseAssessoras - retidos;
