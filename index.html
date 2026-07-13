@@ -555,6 +555,8 @@
         .stat-tile.accent-setedias .stat-value { color: #3d9aa3; }
         .stat-tile.accent-ouvidoria .stat-icon { background: rgba(224, 122, 47, 0.12); color: #e07a2f; }
         .stat-tile.accent-ouvidoria .stat-value { color: #e07a2f; }
+        .stat-tile.accent-colaborador .stat-icon { background: rgba(74, 111, 165, 0.12); color: #4a6fa5; }
+        .stat-tile.accent-colaborador .stat-value { color: #4a6fa5; }
 
         .kpi-sub {
             font-size: 12px;
@@ -1776,6 +1778,14 @@
                     <div class="stat-sub">Casos encaminhados à ouvidoria</div>
                 </div>
             </div>
+            <div class="stat-tile accent-colaborador animate-in">
+                <div class="stat-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg></div>
+                <div class="stat-meta">
+                    <div class="stat-label">Colaborador</div>
+                    <div class="stat-value" id="kpiColaborador">0</div>
+                    <div class="stat-sub">Cancelamentos por colaborador</div>
+                </div>
+            </div>
         </div>
     </div>
 
@@ -2212,6 +2222,7 @@
                         <option value="OUVIDORIA">OUVIDORIA</option>
                         <option value="PAGAMENTO">PAGAMENTO</option>
                         <option value="CANCELAMENTO 7 DIAS">CANCELAMENTO 7 DIAS</option>
+                        <option value="COLABORADOR">COLABORADOR</option>
                         <option value="PLANOS DE SAÚDE">PLANOS DE SAÚDE</option>
                     </select>
                 </div>
@@ -2888,6 +2899,7 @@ const MOTIVO_SUBMOTIVOS = {
     'OUVIDORIA': ['INFORMAÇÃO'],
     'PAGAMENTO': ['ACHOU CARO OS VALORES', 'DIFICULDADE FINANCEIRA', 'DISCORDA DA COBRANÇA LANÇADA', 'NÃO TEM FORMA DE PAGAMENTO'],
     'CANCELAMENTO 7 DIAS': ['COLABORADOR', 'VAI ENTRAR COMO DEPENDENTE'],
+    'COLABORADOR': ['TORNOU-SE COLABORADOR', 'DESLIGADO'],
     'PLANOS DE SAÚDE': ['OUTROS CARTÕES DE DESCONTO E BENEFÍCIOS', 'PLANO DE SAÚDE']
 };
 
@@ -3359,9 +3371,10 @@ function recalculateDashboard() {
     const obitos = filtered.filter(c => c.conversao === 'ÓBITO').length;
     const seteDias = filtered.filter(c => c.conversao === '7 DIAS').length;
     const ouvidorias = filtered.filter(c => c.conversao === 'OUVIDORIA').length;
+    const colaboradores = filtered.filter(c => c.motivo === 'COLABORADOR').length;
     const canceladosTotais = total - retidos - ouvidorias;
-    // Base das assessoras: exclui óbito, ouvidoria e 7 dias do cálculo da taxa
-    const baseAssessoras = total - obitos - ouvidorias - seteDias;
+    // Base das assessoras: exclui óbito, ouvidoria, 7 dias e colaborador
+    const baseAssessoras = total - obitos - ouvidorias - seteDias - colaboradores;
     const canceladosAssessoras = baseAssessoras - retidos;
     const taxa = baseAssessoras > 0 ? (retidos / baseAssessoras) : 0;
 
@@ -3381,6 +3394,7 @@ function recalculateDashboard() {
     animateValue('kpiObito', obitos);
     animateValue('kpiSeteDias', seteDias);
     animateValue('kpiOuvidoria', ouvidorias);
+    animateValue('kpiColaborador', colaboradores);
 
     // Visual alert: flag the retention KPI card red when below the goal
     const belowGoal = total > 0 && (taxa * 100) < RETENTION_GOAL_PERCENT;
@@ -3447,14 +3461,15 @@ function updateCharts(data) {
 
     const EXCL = ['ÓBITO', 'OUVIDORIA', '7 DIAS'];
     const datasetInconf = [];
+
     const datasetObitos = [];
     const datasetOuvidorias = [];
     const datasetSeteDias = [];
 
     assessors.forEach(a => {
         const aData = data.filter(d => d.assessor === a);
-        // Base das assessoras: exclui óbito, ouvidoria e 7 dias
-        const aBase = aData.filter(d => !EXCL.includes(d.conversao));
+        // Base das assessoras: exclui óbito, ouvidoria, 7 dias e colaborador
+        const aBase = aData.filter(d => !EXCL.includes(d.conversao) && d.motivo !== 'COLABORADOR');
         const aTotal = aBase.length;
         const aRetidos = aBase.filter(d => d.conversao === 'SIM').length;
         const aCancelados = aTotal - aRetidos;
